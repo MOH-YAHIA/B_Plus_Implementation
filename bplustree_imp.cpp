@@ -9,7 +9,6 @@
 #define ORDER 5
 // Minimum keys required (ceiling of (ORDER-1)/2)
 // For ORDER 4: ceiling(3/2) = 2 keys minimum (except root which can have 1)
-// NOTE: MIN_KEYS is enforced during DELETION operations (not implemented yet)
 #define MIN_KEYS ((ORDER) / 2)  // 4/2 = 2
 
 /**
@@ -34,12 +33,7 @@ class BPlusTree {
 private:
     std::string filename;    // Name of the file storing the tree
     int root_offset;         // File position of the root node
-    
-    /**
-     * Write a node to the file using fwrite()
-     * @param node - Node to write
-     * @return true if successful, false otherwise
-     */
+
     bool writeNode(Node& node) {
         FILE* file = fopen(filename.c_str(), "rb+");  // Open for read+write, binary  c_str ->Need to convert: std::string → const char*
         if (!file) {
@@ -63,12 +57,6 @@ private:
         return (written == 1);  // Return true if 1 item written successfully 
     }
     
-    /**
-     * Read a node from the file using fread()
-     * @param offset - File position to read from
-     * @param node - Node to store result
-     * @return true if successful, false otherwise
-     */
     bool readNode(int offset, Node& node) {
         FILE* file = fopen(filename.c_str(), "rb");  // Open for read, binary
         if (!file) {
@@ -257,12 +245,20 @@ public:
             return;
         }
         
+        // STEP 1: Reserve space for the root_offset (Header)
+        int initial_offset = -1; 
+        fwrite(&initial_offset, sizeof(int), 1, file); 
+
+        // STEP 2: Create the root node
         Node root;
         root.is_leaf = true;
-        fseek(file, 0, SEEK_END);
-        root.self_offset = ftell(file);
+
+        // STEP 3: Position the root node AFTER the header
+        // This will make root.self_offset = 4 (size of an int)
+        root.self_offset = ftell(file); 
         fwrite(&root, sizeof(Node), 1, file);
-        
+
+        // STEP 4: Go back to the very beginning and write the actual root_offset
         root_offset = root.self_offset;
         fseek(file, 0, SEEK_SET);
         fwrite(&root_offset, sizeof(int), 1, file);
@@ -333,7 +329,7 @@ public:
 
 void displayMenu() {
     std::cout << "\n=================================\n";
-    std::cout << "    B+ Tree (C-Style Files)\n";
+    std::cout << "    B+ Tree \n";
     std::cout << "=================================\n";
     std::cout << "1. Insert a number\n";
     std::cout << "2. Search for a number\n";
@@ -348,8 +344,7 @@ int main() {
     std::string filename = "bplustree.dat";
     BPlusTree tree(filename);
     
-    std::cout << "B+ Tree Application (C-Style File Functions)\n";
-    std::cout << "Using: fopen, fread, fwrite, fseek, ftell, fclose\n";
+    std::cout << "B+ Tree Application \n";
     std::cout << "Data file: " << filename << "\n";
     std::cout << "Order: " << ORDER << " (max " << (ORDER-1) << " keys per node)\n";
     
